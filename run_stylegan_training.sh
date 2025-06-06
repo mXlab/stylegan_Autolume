@@ -12,11 +12,13 @@ SCRATCH_CHECKPOINTS=$HOME/scratch/stylegan_checkpoints/$EXPERIMENT_NAME
 mkdir -p "$SCRATCH_CHECKPOINTS"
 
 # Find latest checkpoint
-LAST_CHECKPOINT=$(find "$SCRATCH_CHECKPOINTS" -maxdepth 1 -name "network-snapshot-*.pkl" -print0 | xargs -r -0 ls -t | head -n 1)
+LAST_CHECKPOINT=$(find "$SCRATCH_CHECKPOINTS" -maxdepth 2 -name "network-snapshot-*.pkl" -print0 | xargs -r -0 ls -t | head -n 1)
 
 if [ -n "$LAST_CHECKPOINT" ]; then
-    echo "Resuming from checkpoint: $LAST_CHECKPOINT"
-    RESUME_ARG="--resume $LAST_CHECKPOINT"
+    # Extract the kimg number from filename: e.g., network-snapshot-000480.pkl -> 480
+    LAST_KIMG=$(basename "$LAST_CHECKPOINT" | sed -E 's/network-snapshot-0*([0-9]+)\.pkl/\1/')
+    echo "Resuming from checkpoint: $LAST_CHECKPOINT (kimg = $LAST_KIMG)"
+    RESUME_ARG="--resume $LAST_CHECKPOINT --resume-kimg $LAST_KIMG"
 else
     echo "Starting from scratch"
     RESUME_ARG=""
@@ -58,7 +60,7 @@ cp "$DATADIR/$DATASET" "$SLURM_TMPDIR/$DATASET"
 
 echo "Starting training..."
 python "$SOURCEDIR/train.py" \
-  --cfg stylegan2 \
+  --cfg "$CFG" \
   --gpus "$NGPUS" \
   --batch "$BATCH" \
   --gamma "$GAMMA" \
@@ -66,7 +68,10 @@ python "$SOURCEDIR/train.py" \
   --outdir "$SCRATCH_CHECKPOINTS" \
   --data "$SLURM_TMPDIR/$DATASET" \
   --workers "$NWORKERS" \
-  --metrics none \
-  --snap 10 \
+  --target "$TARGET" \
+  --aug ada \
+  --metrics fid50k_full \
+  --mirror 1 \
+  --snap 50 \
   $RESUME_ARG
 
