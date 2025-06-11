@@ -70,6 +70,7 @@ python "$SOURCEDIR/train.py" \
   --workers "$NWORKERS" \
   --target "$TARGET" \
   --aug ada \
+  --aug-config "$SOURCEDIR/$AUG_CONFIG" \
   --metrics fid50k_full \
   --mirror 1 \
   --snap 50 \

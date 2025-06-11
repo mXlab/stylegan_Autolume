@@ -135,6 +135,9 @@ def parse_comma_separated_list(s):
 @click.option('--cond',         help='Train conditional model', metavar='BOOL',                 type=bool, default=False, show_default=True)
 @click.option('--mirror',       help='Enable dataset x-flips', metavar='BOOL',                  type=bool, default=False, show_default=True)
 @click.option('--aug',          help='Augmentation mode',                                       type=click.Choice(['noaug', 'ada', 'fixed']), default='ada', show_default=True)
+@click.option('--aug-config',   help='Optional JSON file containing augment parameters.',       type=str, default=None)
+
+@click.option('--aug',          help='Augmentation mode',                                       type=click.Choice(['noaug', 'ada', 'fixed']), default='ada', show_default=True)
 @click.option('--resume',       help='Resume from given network pickle', metavar='[PATH|URL]',  type=str)
 @click.option('--resume-kimg',  help='Resume from given kimg', metavar='INT',                   type=click.IntRange(min=0), default=0, show_default=True)
 @click.option('--freezed',      help='Freeze first layers of D', metavar='INT',                 type=click.IntRange(min=0), default=0, show_default=True)
@@ -190,8 +193,8 @@ def main(**kwargs):
     c = dnnlib.EasyDict() # Main config dict.
     c.G_kwargs = dnnlib.EasyDict(class_name=None, z_dim=512, w_dim=512, mapping_kwargs=dnnlib.EasyDict())
     c.D_kwargs = dnnlib.EasyDict(class_name='training.networks_stylegan2.Discriminator', block_kwargs=dnnlib.EasyDict(), mapping_kwargs=dnnlib.EasyDict(), epilogue_kwargs=dnnlib.EasyDict())
-    c.G_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', betas=[0,0.99], eps=1e-8)
-    c.D_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', betas=[0,0.99], eps=1e-8)
+    c.G_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', betas=(0.0, 0.99), eps=1e-8)
+    c.D_opt_kwargs = dnnlib.EasyDict(class_name='torch.optim.Adam', betas=(0.0, 0.99), eps=1e-8)
     c.loss_kwargs = dnnlib.EasyDict(class_name='training.loss.StyleGAN2Loss')
     c.data_loader_kwargs = dnnlib.EasyDict(pin_memory=True, prefetch_factor=2)
 
@@ -253,7 +256,13 @@ def main(**kwargs):
 
     # Augmentation.
     if opts.aug != 'noaug':
-        c.augment_kwargs = dnnlib.EasyDict(class_name='training.augment.AugmentPipe', xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1)
+        if opts.aug_config:
+            with open(opts.aug_config, 'r') as f:
+                aug_json = json.load(f)
+            aug_json['class_name'] = 'training.augment.AugmentPipe'
+            c.augment_kwargs = dnnlib.EasyDict(aug_json)
+        else:
+            c.augment_kwargs = dnnlib.EasyDict(class_name='training.augment.AugmentPipe', xflip=1, rotate90=1, xint=1, scale=1, rotate=1, aniso=1, xfrac=1, brightness=1, contrast=1, lumaflip=1, hue=1, saturation=1)
         if opts.aug == 'ada':
             c.ada_target = opts.target
         if opts.aug == 'fixed':

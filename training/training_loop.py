@@ -193,6 +193,8 @@ def training_loop(
     loss = dnnlib.util.construct_class_by_name(device=device, G=G, D=D, augment_pipe=augment_pipe, **loss_kwargs) # subclass of training.loss.Loss
     phases = []
     for name, module, opt_kwargs, reg_interval in [('G', G, G_opt_kwargs, G_reg_interval), ('D', D, D_opt_kwargs, D_reg_interval)]:
+        if 'betas' in opt_kwargs and not isinstance(opt_kwargs['betas'], tuple):
+             opt_kwargs['betas'] = tuple(opt_kwargs['betas']) # make sure betas are a tuple
         if reg_interval is None:
             opt = dnnlib.util.construct_class_by_name(params=module.parameters(), **opt_kwargs) # subclass of torch.optim.Optimizer
             phases += [dnnlib.EasyDict(name=name+'both', module=module, opt=opt, interval=1)]
@@ -200,7 +202,7 @@ def training_loop(
             mb_ratio = reg_interval / (reg_interval + 1)
             opt_kwargs = dnnlib.EasyDict(opt_kwargs)
             opt_kwargs.lr = opt_kwargs.lr * mb_ratio
-            opt_kwargs.betas = [beta ** mb_ratio for beta in opt_kwargs.betas]
+            opt_kwargs.betas = tuple(beta ** mb_ratio for beta in opt_kwargs.betas)
             opt = dnnlib.util.construct_class_by_name(module.parameters(), **opt_kwargs) # subclass of torch.optim.Optimizer
             phases += [dnnlib.EasyDict(name=name+'main', module=module, opt=opt, interval=1)]
             phases += [dnnlib.EasyDict(name=name+'reg', module=module, opt=opt, interval=reg_interval)]
